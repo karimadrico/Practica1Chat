@@ -182,8 +182,17 @@ public class ChatServerImpl implements ChatServer {
 				switch (chatMessage.getType()) {
 					case SHUTDOWN:
 						show(username + " shutdown chat system.");
-						runningThread = false;
-						alive = false;
+						alive = false; // detiene el loop del servidor
+
+						// enviar LOGOUT a todos los clientes activos
+						ChatMessage shutdownMsg = new ChatMessage(id, MessageType.LOGOUT, "Server shutting down");
+						for (ServerThreadForClient ct : clients) {
+							ct.sendMessage(shutdownMsg);
+							ct.close(); // cierra streams y socket
+						}
+						clients.clear(); // limpia la lista
+
+						runningThread = false; // termina este hilo
 						break;
 					case MESSAGE:
 						chatMessage.setMessage(username + ": " + chatMessage.getMessage());
