@@ -9,6 +9,10 @@ import es.ubu.lsi.common.ChatMessage.MessageType;
 
 /**
  * Cliente de chat final
+ * Maneja conexión, envío de mensajes, logout y ban/unban de usuarios.
+ * Inner class ChatClientListener escucha mensajes del servidor.
+ * 
+ * @author Karima
  */
 public class ChatClientImpl implements ChatClient {
 
@@ -54,8 +58,10 @@ public class ChatClientImpl implements ChatClient {
 	@Override
 	public synchronized void sendMessage(ChatMessage msg) {
 		try {
-			if (carryOn)
+			if (carryOn) {
 				sOutput.writeObject(msg);
+				sOutput.flush(); // Garantiza envío inmediato
+			}
 		} catch (IOException e) {
 			System.out.println("Error sending message: " + e);
 		}
@@ -86,6 +92,7 @@ public class ChatClientImpl implements ChatClient {
 		switch (args.length) {
 			case 3:
 				serverAddress = args[2];
+				break;
 			case 2:
 				try {
 					portNumber = Integer.parseInt(args[1]);
@@ -93,6 +100,7 @@ public class ChatClientImpl implements ChatClient {
 					System.out.println("Invalid port.");
 					return;
 				}
+				break;
 			case 1:
 				userName = args[0];
 				break;
@@ -140,6 +148,9 @@ public class ChatClientImpl implements ChatClient {
 		client.disconnect();
 	}
 
+	/**
+	 * Listener para mensajes del servidor.
+	 */
 	class ChatClientListener implements Runnable {
 		@Override
 		public void run() {
