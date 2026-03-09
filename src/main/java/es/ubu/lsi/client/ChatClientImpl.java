@@ -8,22 +8,19 @@ import es.ubu.lsi.common.ChatMessage;
 import es.ubu.lsi.common.ChatMessage.MessageType;
 
 /**
- * Client.
- * 
+ * Cliente de chat final
  */
 public class ChatClientImpl implements ChatClient {
 
-	private ObjectInputStream sInput; // to read from the socket
-	private ObjectOutputStream sOutput; // to write on the socket
+	private ObjectInputStream sInput;
+	private ObjectOutputStream sOutput;
 	private Socket socket;
 
 	private String server;
 	private String username;
 	private int port;
-
-	private boolean carryOn = true;
 	private int id;
-
+	private boolean carryOn = true;
 	private Set<String> bannedUsers = new HashSet<>();
 
 	public ChatClientImpl(String server, int port, String username) {
@@ -36,27 +33,17 @@ public class ChatClientImpl implements ChatClient {
 	public boolean start() {
 		try {
 			socket = new Socket(server, port);
-			String msg = "Connection accepted " + socket.getInetAddress() + ":" + socket.getPort();
-			display(msg);
+			System.out.println("Connected to server " + socket.getInetAddress() + ":" + socket.getPort());
 
 			sInput = new ObjectInputStream(socket.getInputStream());
 			sOutput = new ObjectOutputStream(socket.getOutputStream());
 
-		} catch (IOException eIO) {
-			display("Exception creating new Input/output Streams: " + eIO);
-			return false;
-		} catch (Exception ec) {
-			display("Error connecting to server:" + ec);
-			return false;
-		}
-
-		try {
 			sOutput.writeObject(username);
 			sOutput.flush();
 			id = sInput.readInt();
-		} catch (IOException eIO) {
-			display("Exception doing login : " + eIO);
-			disconnect();
+
+		} catch (IOException e) {
+			System.out.println("Error creating I/O streams or connecting: " + e);
 			return false;
 		}
 
@@ -64,49 +51,37 @@ public class ChatClientImpl implements ChatClient {
 		return true;
 	}
 
-	private void display(String msg) {
-		System.out.println(msg);
-	}
-
 	@Override
 	public synchronized void sendMessage(ChatMessage msg) {
 		try {
-			if (this.carryOn) {
+			if (carryOn)
 				sOutput.writeObject(msg);
-			}
 		} catch (IOException e) {
-			display("Exception writing to server: " + e);
+			System.out.println("Error sending message: " + e);
 		}
 	}
 
 	@Override
 	public void disconnect() {
 		try {
-			display("Disconnecting client " + username);
-			if (sInput != null) {
+			if (sInput != null)
 				sInput.close();
-				sInput = null;
-			}
-			if (sOutput != null) {
+			if (sOutput != null)
 				sOutput.close();
-				sOutput = null;
-			}
-			if (socket != null && !socket.isClosed()) {
+			if (socket != null && !socket.isClosed())
 				socket.close();
-				socket = null;
-			}
-		} catch (Exception e) {
-			display("Disconnect with error, closing resources.");
+		} catch (IOException e) {
+			System.out.println("Error closing resources: " + e);
 		} finally {
 			carryOn = false;
-			display("Bye!");
+			System.out.println("Disconnected. Bye!");
 		}
 	}
 
 	public static void main(String[] args) {
 		int portNumber = 1500;
 		String serverAddress = "localhost";
-		String userName = "Anonymous";
+		String userName = "Karima";
 
 		switch (args.length) {
 			case 3:
@@ -135,7 +110,7 @@ public class ChatClientImpl implements ChatClient {
 		try (Scanner scan = new Scanner(System.in)) {
 			while (client.carryOn) {
 				System.out.print("> ");
-				String userMsg = scan.nextLine();
+				String userMsg = scan.nextLine().trim();
 
 				if (userMsg.equalsIgnoreCase("logout")) {
 					client.sendMessage(new ChatMessage(client.id, MessageType.LOGOUT, ""));
@@ -156,7 +131,7 @@ public class ChatClientImpl implements ChatClient {
 					continue;
 				}
 
-				// Formateo del mensaje con username
+				// Formateo del mensaje
 				String formattedMsg = client.username + " patrocina el mensaje: " + userMsg;
 				client.sendMessage(new ChatMessage(client.id, MessageType.MESSAGE, formattedMsg));
 			}
@@ -166,14 +141,13 @@ public class ChatClientImpl implements ChatClient {
 	}
 
 	class ChatClientListener implements Runnable {
+		@Override
 		public void run() {
 			while (true) {
 				try {
 					ChatMessage msg = (ChatMessage) sInput.readObject();
 					String text = msg.getMessage();
-					String user = "";
-					if (text.contains(":"))
-						user = text.split(":")[0];
+					String user = text.contains(":") ? text.split(":")[0] : "";
 
 					if (!bannedUsers.contains(user)) {
 						System.out.println(text);
@@ -181,11 +155,11 @@ public class ChatClientImpl implements ChatClient {
 					}
 
 				} catch (IOException e) {
-					display("Server has closed the connection.");
+					System.out.println("Server has closed the connection.");
 					carryOn = false;
 					break;
 				} catch (ClassNotFoundException e2) {
-					throw new RuntimeException("Wrong message type", e2);
+					throw new RuntimeException("Received unknown message type", e2);
 				}
 			}
 		}
